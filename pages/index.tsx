@@ -70,7 +70,7 @@ console.log(process.env.BASE_URL)
       </div>
       <div className="max-w-3xl w-full bg-white p-6 rounded-lg shadow-lg">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
-          📋 Inventory Request Tracker
+          📋 New External Invigilator and Center Payment request flow
         </h1>
 
         <div className="flex space-x-4 mb-6">

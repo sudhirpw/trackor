@@ -18,7 +18,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
-        <title>Payment Trakor</title>
+        <title>Payment Tracker</title>
         <link rel="icon" href="/logo.png" />
       </Head>
       <Component {...pageProps} />
