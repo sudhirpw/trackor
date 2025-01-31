@@ -1,6 +1,6 @@
 
-import { Console } from "console";
-import { CloudCog } from "lucide-react";
+// import { Console } from "console";
+// import { CloudCog } from "lucide-react";
 import { NextApiRequest, NextApiResponse } from "next";
 
 //
@@ -19,7 +19,7 @@ const BASE_URL = process.env.BASE_URL!;
 //
 async function fetchWithFallback(url: string, primaryKey: string, ) {
   // First attempt: replace {API_KEY} placeholder with primaryKey
-  let response = await fetch(url.replace("{API_KEY}", primaryKey));
+  const response = await fetch(url.replace("{API_KEY}", primaryKey));
 
   // If 401 and backupKey is available, retry with backup
   // if (response.status === 401 && backupKey) {
@@ -105,7 +105,7 @@ function determineApprovalStatus(
 
   let overallStatus: OverallStatus = "IN_PROGRESS";
   let denialComment: string | null = null;
-  let financeRole = "";
+  // let financeRole = "";
   let financeEmail = "";
 
   // For each approval/rejection action
@@ -120,8 +120,8 @@ function determineApprovalStatus(
     stages.push({ role: "Finance", email: action.actionDetails?.assigneeEmail });
     let stageIndex = stages.findIndex(
       (s) => {
-        console.log(s.email, userEmail, "s.email, userEmail");
-        (s.email || "").toLowerCase() === userEmail}
+        // console.log(s.email, userEmail, "s.email, userEmail");
+        return (s.email || "").toLowerCase() === userEmail}
     );
     if (stageIndex === -1 && action.actionDetails?.assigneeEmail) {
       const assignedEmail = action.actionDetails.assigneeEmail.toLowerCase();
@@ -183,7 +183,7 @@ function determineApprovalStatus(
     }
     
     if (stages[stageIndex].role === "Finance") {
-      financeRole = stages[stageIndex].role;
+      // financeRole = stages[stageIndex].role;
       financeEmail = stages[stageIndex].email || "";
     }
   }
@@ -256,10 +256,10 @@ async function getSubmissionDetails(submissionId: string) {
 
     // 2a) Decide whether we need an IT stage
     // const typeOfRequest = answers["12"]?.answer || "";
-    const inventorySelected = answers["36"]?.answer || []; // e.g. ["Software","Apparel"]
-    const needsIT =
-      // typeOfRequest === "Replacement Request" ||
-      (Array.isArray(inventorySelected) && inventorySelected.includes("Software"));
+    // const inventorySelected = answers["36"]?.answer || []; // e.g. ["Software","Apparel"]
+    // const needsIT =
+    //   // typeOfRequest === "Replacement Request" ||
+    //   (Array.isArray(inventorySelected) && inventorySelected.includes("Software"));
 
     // 2b) Build the stage array from form answers
     function buildApproverStages() {
@@ -287,8 +287,8 @@ async function getSubmissionDetails(submissionId: string) {
     } = determineApprovalStatus(approvalActions, approverStages);
 
     // 5) Additional parsing for "Replacement Request" or other categories
-    let replacementDetails: unknown = undefined;
-    const inventoryDetails: unknown[] = [];
+    // let replacementDetails: unknown = undefined;
+    // const inventoryDetails: unknown[] = [];
 
     // if (typeOfRequest === "Replacement Request") {
     //   const rawRepl = answers["105"]?.answer || "[]";

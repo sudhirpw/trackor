@@ -2,7 +2,7 @@
 
 // src/components/RequestDetails.tsx
 
-import React, { useState } from "react";
+import React from "react";
 
 // A generic row shape: each row is a record with arbitrary keys
 // e.g. {"Items":"Laptop","Quantity":"1","Measurement":"meter"}
@@ -56,133 +56,133 @@ interface RequestDetailsProps {
 }
 
 const RequestDetails: React.FC<RequestDetailsProps> = ({ request }) => {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  // const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   console.log(request)
   if (!request) return null;
 
   const {
-     inventoryType = [],
+    //  inventoryType = [],
     approvals,
     denialComment,
-     inventoryDetails = [],
+    //  inventoryDetails = [],
   } = request;
 
   // const isReplacement = request.type === "Replacement Request";
 
   // Toggles the accordion: if you click the same category, it closes; otherwise open the new one
-  function handleToggle(index: number) {
-    setExpandedIndex((prev) => (prev === index ? null : index));
-  }
+  // function handleToggle(index: number) {
+  //   setExpandedIndex((prev) => (prev === index ? null : index));
+  // }
 
   // Renders either the replacement details or the normal inventory categories
-  function renderInventorySection() {
-    // if (isReplacement) {
-    //   // If type = "Replacement Request," you’d show replacementDetails here
-    //   return null;
-    // }
+  // function renderInventorySection() {
+  //   // if (isReplacement) {
+  //   //   // If type = "Replacement Request," you’d show replacementDetails here
+  //   //   return null;
+  //   // }
 
-    return (
-      <div className="mt-6">
-        <h3 className="text-lg font-semibold">Inventory Requested</h3>
-        {inventoryType.length > 0 ? (
-          <div className="flex flex-wrap gap-2 mt-2 mb-4">
-            {inventoryType.map((cat, idx) => (
-              <span key={idx} className="bg-gray-100 px-3 py-1 rounded-md text-sm">
-                {cat}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-red-600 mt-2">No items requested</p>
-        )}
+  //   return (
+  //     <div className="mt-6">
+  //       <h3 className="text-lg font-semibold">Inventory Requested</h3>
+  //       {inventoryType.length > 0 ? (
+  //         <div className="flex flex-wrap gap-2 mt-2 mb-4">
+  //           {inventoryType.map((cat, idx) => (
+  //             <span key={idx} className="bg-gray-100 px-3 py-1 rounded-md text-sm">
+  //               {cat}
+  //             </span>
+  //           ))}
+  //         </div>
+  //       ) : (
+  //         <p className="text-red-600 mt-2">No items requested</p>
+  //       )}
 
-        <div className="border border-gray-300 rounded mt-4 overflow-hidden">
-          {inventoryDetails.map((catDetail, i) => {
-            const isOpen = expandedIndex === i;
+  //       <div className="border border-gray-300 rounded mt-4 overflow-hidden">
+  //         {inventoryDetails.map((catDetail, i) => {
+  //           const isOpen = expandedIndex === i;
 
-            // 1) Category Header (click to expand/collapse)
-            return (
-              <div key={i}>
-                <button
-                  type="button"
-                  onClick={() => handleToggle(i)}
-                  className="w-full flex items-center justify-between 
-                             px-4 py-3 bg-gray-100 hover:bg-gray-200 
-                             focus:outline-none text-sm text-gray-700
-                             font-medium"
-                >
-                  {/* Category Name */}
-                  <span>{catDetail.categoryName}</span>
-                  {/* Arrow Icon (rotate if open) */}
-                  <svg
-                    className={`w-5 h-5 transform transition-transform ${
-                      isOpen ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
+  //           // 1) Category Header (click to expand/collapse)
+  //           return (
+  //             <div key={i}>
+  //               <button
+  //                 type="button"
+  //                 onClick={() => handleToggle(i)}
+  //                 className="w-full flex items-center justify-between 
+  //                            px-4 py-3 bg-gray-100 hover:bg-gray-200 
+  //                            focus:outline-none text-sm text-gray-700
+  //                            font-medium"
+  //               >
+  //                 {/* Category Name */}
+  //                 <span>{catDetail.categoryName}</span>
+  //                 {/* Arrow Icon (rotate if open) */}
+  //                 <svg
+  //                   className={`w-5 h-5 transform transition-transform ${
+  //                     isOpen ? "rotate-180" : ""
+  //                   }`}
+  //                   fill="none"
+  //                   stroke="currentColor"
+  //                   strokeWidth="2"
+  //                   viewBox="0 0 24 24"
+  //                 >
+  //                   <path
+  //                     strokeLinecap="round"
+  //                     strokeLinejoin="round"
+  //                     d="M19 9l-7 7-7-7"
+  //                   />
+  //                 </svg>
+  //               </button>
 
-                {/* 2) If open, show the table (with dynamic columns) */}
-                {isOpen && (
-                  <div className="px-4 pb-4 pt-2 bg-white border-t border-gray-200">
-                    {renderTable(catDetail.rows)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  //               {/* 2) If open, show the table (with dynamic columns) */}
+  //               {isOpen && (
+  //                 <div className="px-4 pb-4 pt-2 bg-white border-t border-gray-200">
+  //                   {renderTable(catDetail.rows)}
+  //                 </div>
+  //               )}
+  //             </div>
+  //           );
+  //         })}
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Dynamically generate the table columns from the row keys
-  function renderTable(rows: InventoryRow[]) {
-    if (!rows || rows.length === 0) {
-      return <p className="text-sm text-gray-500">No items found.</p>;
-    }
-    // Use the keys from the first row as columns
-    const headers = Object.keys(rows[0]);
+  // function renderTable(rows: InventoryRow[]) {
+  //   if (!rows || rows.length === 0) {
+  //     return <p className="text-sm text-gray-500">No items found.</p>;
+  //   }
+  //   // Use the keys from the first row as columns
+  //   const headers = Object.keys(rows[0]);
 
-    return (
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {headers.map((header) => (
-                <th
-                  key={header}
-                  className="text-xs font-bold text-gray-700 px-3 py-2 text-left border-b border-gray-200"
-                >
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} className="border-b border-gray-200">
-                {headers.map((header) => (
-                  <td key={header} className="px-3 py-2 text-sm">
-                    {row[header]}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
+  //   return (
+  //     <div className="overflow-x-auto">
+  //       <table className="min-w-full border border-gray-200">
+  //         <thead className="bg-gray-50">
+  //           <tr>
+  //             {headers.map((header) => (
+  //               <th
+  //                 key={header}
+  //                 className="text-xs font-bold text-gray-700 px-3 py-2 text-left border-b border-gray-200"
+  //               >
+  //                 {header}
+  //               </th>
+  //             ))}
+  //           </tr>
+  //         </thead>
+  //         <tbody>
+  //           {rows.map((row, i) => (
+  //             <tr key={i} className="border-b border-gray-200">
+  //               {headers.map((header) => (
+  //                 <td key={header} className="px-3 py-2 text-sm">
+  //                   {row[header]}
+  //                 </td>
+  //               ))}
+  //             </tr>
+  //           ))}
+  //         </tbody>
+  //       </table>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="bg-white p-6 rounded-lg">

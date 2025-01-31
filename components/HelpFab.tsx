@@ -1,15 +1,15 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect,  } from "react";
 import { Mail, Heart, Loader2 } from "lucide-react";
 // import { rtdb } from "../src/lib/firebase";
-import { ref, onValue, set } from "firebase/database";
+// import { ref, onValue, set } from "firebase/database";
 
 interface HeartData {
   id: number;
   offsetX: number;
 }
 
-const MAX_BURSTS = 50;
+// const MAX_BURSTS = 50;
 
 const HelpFab: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,8 +21,8 @@ const HelpFab: React.FC = () => {
   const [emailError, setEmailError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const prevLikeCountRef = useRef(0);
-  const isInitialLoad = useRef(true);
+  // const prevLikeCountRef = useRef(0);
+  // const isInitialLoad = useRef(true);
 
   useEffect(() => {
     // const likeRef = ref(, "likeCount");
