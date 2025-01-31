@@ -95,13 +95,18 @@ function determineApprovalStatus(
   stages: Stage[]
 ) {
   // Initialize all stages to PENDING
-
-  console.log(approvalActions, "approvalActions >>>>> ")
+  // console.log(approvalActions, "approvalActions >>>>> ");
   const approvals: Record<string, StageStatus> = {};
-  stages.forEach((s) => (approvals[s.role] = "PENDING"));
+  const comments: Record<string, string> = {};
+  stages.forEach((s) => {
+    approvals[s.role] = "PENDING";
+    comments[s.role] = "";
+  });
 
   let overallStatus: OverallStatus = "IN_PROGRESS";
   let denialComment: string | null = null;
+  let financeRole = "";
+  let financeEmail = "";
 
   // For each approval/rejection action
   for (const action of approvalActions) {
@@ -111,12 +116,13 @@ function determineApprovalStatus(
       outcomeID = parseInt(outcomeID);
     }
     const comment = action.actionDetails?.comment || "";
-    console.log(outcomeID , userEmail, "outcomeID >>>>> ")
     // Attempt to find stage by email or assigneeEmail
+    stages.push({ role: "Finance", email: action.actionDetails?.assigneeEmail });
     let stageIndex = stages.findIndex(
-      (s) => (s.email || "").toLowerCase() === userEmail
+      (s) => {
+        console.log(s.email, userEmail, "s.email, userEmail");
+        (s.email || "").toLowerCase() === userEmail}
     );
-    console.log(stageIndex, "stageIndex >>>>> ")
     if (stageIndex === -1 && action.actionDetails?.assigneeEmail) {
       const assignedEmail = action.actionDetails.assigneeEmail.toLowerCase();
       stageIndex = stages.findIndex(
@@ -155,30 +161,41 @@ function determineApprovalStatus(
       continue;
     }
 
-    // Apply outcome
+    // Apply outcome and store comment
     if (outcomeID === 1) {
       // Approved
       approvals[stages[stageIndex].role] = "APPROVED";
+      comments[stages[stageIndex].role] = comment;
     } else if (outcomeID === 3) {
       // Expired
       approvals[stages[stageIndex].role] = "EXPIRED";
+      comments[stages[stageIndex].role] = comment;
       overallStatus = "EXPIRED";
       denialComment = comment;
       break;
     } else if (outcomeID === 2 || outcomeID === 4) {
       // Denied
       approvals[stages[stageIndex].role] = "DENIED";
+      comments[stages[stageIndex].role] = comment;
       overallStatus = "DENIED";
       denialComment = comment;
       break;
     }
+    
+    if (stages[stageIndex].role === "Finance") {
+      financeRole = stages[stageIndex].role;
+      financeEmail = stages[stageIndex].email || "";
+    }
   }
+  
 
   // If not expired/denied, check if all stages are approved
   if (overallStatus !== "EXPIRED" && overallStatus !== "DENIED") {
-    
-    const allApproved = stages.every((s) => approvals[s.role] === "APPROVED");
-     console.log(allApproved, "allApproved >>>>> ")
+    const allApproved = stages.every((s) => {
+      console.log(s.role, "s.role >>>>> ");
+      console.log(approvals[s.role] , s.role, "approvals[s.role] >>>>> ");
+     return approvals[s.role] === "APPROVED"});
+     console.log(allApproved, "allApproved >>>>> ");
     overallStatus = allApproved ? "APPROVED" : "IN_PROGRESS";
   }
 
@@ -188,15 +205,10 @@ function determineApprovalStatus(
   if (overallStatus === "IN_PROGRESS") {
     const pendingStage = stages.find((s) => approvals[s.role] === "PENDING");
     if (pendingStage) {
-      
-    
       currentApprover = pendingStage.role;
       currentApproverEmail = pendingStage.email || "";
-      console.log(currentApprover, "overallStatus >>>>> ")
     }
-   
   }
-
 
   return {
     approvals,
@@ -204,9 +216,10 @@ function determineApprovalStatus(
     currentApprover,
     currentApproverEmail,
     denialComment,
+    comments,
+    financeEmail
   };
 }
-
 /**
  * Grabs a single submission's details + approval thread,
  * returning a structured object with stage statuses, etc.
@@ -253,11 +266,8 @@ async function getSubmissionDetails(submissionId: string) {
       const stages: Stage[] = [
         { role: "BH", email: answers["50"]?.answer },
       ];
-      // if (needsIT) {
-      //   stages.push({ role: "IT", email: answers["41"]?.answer });
-      // }
       stages.push({ role: "CTM", email: answers["68"]?.answer });
-       stages.push({ role: "Finance", email: ""});
+      //  stages.push({ role: "Finance", email: "" });
       return stages;
     }
     const approverStages = buildApproverStages();
@@ -272,6 +282,8 @@ async function getSubmissionDetails(submissionId: string) {
       currentApprover,
       currentApproverEmail,
       denialComment,
+      comments,
+      financeEmail
     } = determineApprovalStatus(approvalActions, approverStages);
 
     // 5) Additional parsing for "Replacement Request" or other categories
@@ -386,10 +398,12 @@ async function getSubmissionDetails(submissionId: string) {
       currentApprover,
       currentApproverEmail,
       denialComment,
+      comments,
+      financeEmail,
       approvals: {
         BH: approvals["BH"],
         CTM: approvals["CTM"],
-        Finance: approvals["Finance"],
+        FINANCE: approvals["Finance"],
         // admin: approvals["Admin"],
       },
       // replacementDetails,

@@ -24,6 +24,7 @@ export interface  RequestData  {
   totalCost: number;
   paymentType: string;
   testType:string,
+  financeEmail?:string,
   // type: string;                // e.g. "Individual Request"
    inventoryType: string[];     // e.g. ["Electronics","Apparel","Others"]
   currentApprover: string;
@@ -32,9 +33,15 @@ export interface  RequestData  {
   approvals: {
     BH?: string;
     CTM?: string;
-    Finance?: string;
+    FINANCE?: string;
     [key: string]: string | undefined;
   };
+  comments:{
+    BH?: string;
+    CTM?: string;
+    Finance?: string;
+    [key: string]: string | undefined;
+  }
   stageEmails?: Record<string, string>;
 
   // Inventory details for multiple categories
@@ -192,7 +199,29 @@ const RequestDetails: React.FC<RequestDetailsProps> = ({ request }) => {
           <strong>BH EMAIL:</strong> {request.bhEmail || "N/A"}
         </p>
         <p className="text-gray-700">
+          <strong>BH Approval Status:</strong> {request.approvals.BH || "N/A"}
+        </p>
+        <p className="text-gray-700">
+          <strong>BH Approval Comment:</strong> {request.comments.BH || "N/A"}
+        </p>
+
+        <p className="text-gray-700">
           <strong>CTM EMAIL:</strong> {request.ctmEmail || "N/A"}
+        </p>
+        <p className="text-gray-700">
+          <strong>CTM Approval Status:</strong> {request.approvals.CTM || "N/A"}
+        </p>
+        <p className="text-gray-700">
+          <strong>CTM Approval Comment:</strong> {request.comments.CTM || "N/A"}
+        </p>
+        <p className="text-gray-700">
+          <strong>Finance Email:</strong> {request.financeEmail || "N/A"}
+        </p>
+        <p className="text-gray-700">
+          <strong>Finance Approval Status:</strong> {request.approvals.FINANCE || "N/A"}
+        </p>
+        <p className="text-gray-700">
+          <strong>Finance Approval Comment:</strong> {request.comments.Finance || "N/A"}
         </p>
         <p className="text-gray-700">
           <strong>Payment Type:</strong> {request.paymentType || "N/A"}
@@ -227,7 +256,8 @@ const RequestDetails: React.FC<RequestDetailsProps> = ({ request }) => {
       <div className="mt-8">
         <h3 className="text-lg font-semibold mb-4">Approval Status</h3>
         <div className="flex justify-center space-x-20 mb-6">
-          {["BH", "CTM", "Finance", ].map((role, index) => {
+          {["BH", "CTM", "FINANCE", ].map((role, index) => {
+            console.log(approvals?.[role] , index , role)
             // Possibly skip IT if not needed, etc.
             const needsIT =
       // request.type === "Replacement Request" ||
@@ -237,9 +267,9 @@ const RequestDetails: React.FC<RequestDetailsProps> = ({ request }) => {
     if (role === "IT" && !needsIT) {
       return null; // Hide IT row
     }
-            const stageStatus = approvals?.[role.toLowerCase()] || "PENDING";
+            const stageStatus = approvals?.[role.toUpperCase()] || "PENDING";
             let labelText = "";
-            let circleIcon: string | number = index + 1;
+            let circleIcon: string | number = index +1;
             let circleClasses = "bg-gray-200 text-gray-600";
 
             const isCurrentApprover =
