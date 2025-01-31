@@ -18,7 +18,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
-        <title>IRF Tracker 2.0</title>
+        <title>Payment Trakor</title>
         <link rel="icon" href="/logo.png" />
       </Head>
       <Component {...pageProps} />
