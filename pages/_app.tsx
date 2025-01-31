@@ -1,0 +1,29 @@
+import { AppProps } from "next/app";
+import Head from "next/head";
+import "../styles/globals.css";
+import { useEffect } from "react";
+// import { analytics } from "../src/lib/firebase";
+
+function MyApp({ Component, pageProps }: AppProps) {
+  useEffect(() => {
+    // analytics?.then((instance) => {
+    //   if (instance) {
+    //     console.log("FA ✔️");
+    //   } else {
+    //     console.warn("FA ❌");
+    //   }
+    // });
+  }, []);
+
+  return (
+    <>
+      <Head>
+        <title>IRF Tracker 2.0</title>
+        <link rel="icon" href="/logo.png" />
+      </Head>
+      <Component {...pageProps} />
+    </>
+  );
+}
+
+export default MyApp;

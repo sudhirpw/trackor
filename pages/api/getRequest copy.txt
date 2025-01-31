@@ -1,0 +1,390 @@
+// pair code 1.17
+
+
+import { NextApiRequest, NextApiResponse } from "next";
+
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
+const FORM_ID = process.env.NEXT_PUBLIC_FORM_ID;
+const BASE_URL = "https://pw.jotform.com/API";
+
+// Each item from "/inbox/submission/{id}/thread"
+interface ThreadItem {
+  actionType: string; // e.g. "APPROVE_REJECT" / "MULTIPLE_APPROVE_REJECT"
+  timestamp: string;
+  user?: {
+    email?: string;
+  };
+  actionDetails?: {
+    outcomeID?: string | number; // e.g. "1"=Approve, "2"=Custom Deny, "3"=Expired, "4"=Standard Deny, etc.
+    type?: string;               // "APPROVE", "REJECT", "CUSTOM", ...
+    comment?: string | null;
+    assigneeEmail?: string;
+  };
+}
+
+function parseApprovals(threadData: { content?: ThreadItem[] }) {
+  if (!threadData?.content) return [];
+
+  // Include both normal and multi-approver items
+  const approvalActions = threadData.content.filter(
+    (item) =>
+      (item.actionType === "APPROVE_REJECT" ||
+       item.actionType === "MULTIPLE_APPROVE_REJECT") &&
+      item.actionDetails?.outcomeID !== undefined
+  );
+
+  // Sort ascending by timestamp (earliest first)
+  approvalActions.sort((a, b) => {
+    const tA = new Date(a.timestamp).getTime();
+    const tB = new Date(b.timestamp).getTime();
+    return tA - tB;
+  });
+  return approvalActions;
+}
+
+type StageStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
+type OverallStatus = "IN_PROGRESS" | "APPROVED" | "DENIED" | "EXPIRED";
+
+interface Stage {
+  role: string;
+  email?: string;
+}
+
+/**
+ * Determines the final stage statuses + overall status
+ */
+function determineApprovalStatus(
+  approvalActions: ThreadItem[],
+  stages: Stage[]
+) {
+  // Initialize all stages to PENDING
+  const approvals: Record<string, StageStatus> = {};
+  stages.forEach((s) => (approvals[s.role] = "PENDING"));
+
+  let overallStatus: OverallStatus = "IN_PROGRESS";
+  let denialComment: string | null = null;
+
+  // For each approval/rejection action
+  for (const action of approvalActions) {
+    const userEmail = (action.user?.email || "").toLowerCase();
+    let outcomeID = action.actionDetails?.outcomeID;
+    if (typeof outcomeID === "string") {
+      outcomeID = parseInt(outcomeID);
+    }
+    const comment = action.actionDetails?.comment || "";
+
+    // Attempt to find stage by email or assigneeEmail
+    let stageIndex = stages.findIndex(
+      (s) => (s.email || "").toLowerCase() === userEmail
+    );
+    if (stageIndex === -1 && action.actionDetails?.assigneeEmail) {
+      const assignedEmail = action.actionDetails.assigneeEmail.toLowerCase();
+      stageIndex = stages.findIndex(
+        (s) => (s.email || "").toLowerCase() === assignedEmail
+      );
+    }
+
+    // If system triggered expiry
+    const isWorkflowSystem =
+      userEmail.includes("workflowsystem") ||
+      userEmail.startsWith("!workflow_system");
+
+    // 1) If system auto-denied (outcomeID=2 or 4), set overallStatus=DENIED (no blame)
+    if (isWorkflowSystem && (outcomeID === 2 || outcomeID === 4)) {
+      overallStatus = "DENIED";
+      denialComment = "🚫 AUTO DECLINED BY SYSTEM WRT SOP";
+      break;
+    }
+
+    // 2) If no matching stage but outcome=3 (Expired) from system, expire the next pending stage
+    if (stageIndex === -1 && outcomeID === 3 && isWorkflowSystem) {
+      stageIndex = stages.findIndex((s) => approvals[s.role] === "PENDING");
+    }
+
+    // 3) Multi‐approver fallback: if still no match but action is MULTIPLE_APPROVE_REJECT,
+    //    e.g. an IT user who’s different from the single form email.
+    if (stageIndex === -1 && action.actionType === "MULTIPLE_APPROVE_REJECT") {
+      // Example fallback: find the next pending IT stage
+      stageIndex = stages.findIndex(
+        (s) => approvals[s.role] === "PENDING" && s.role === "IT"
+      );
+    }
+
+    // 4) If we still have no stageIndex, skip this action
+    if (stageIndex === -1) {
+      continue;
+    }
+
+    // Apply outcome
+    if (outcomeID === 1) {
+      // Approved
+      approvals[stages[stageIndex].role] = "APPROVED";
+    } else if (outcomeID === 3) {
+      // Expired
+      approvals[stages[stageIndex].role] = "EXPIRED";
+      overallStatus = "EXPIRED";
+      denialComment = comment;
+      break;
+    } else if (outcomeID === 2 || outcomeID === 4) {
+      // Denied
+      approvals[stages[stageIndex].role] = "DENIED";
+      overallStatus = "DENIED";
+      denialComment = comment;
+      break;
+    }
+  }
+
+  // If not expired/denied, check if all stages are approved
+  if (overallStatus !== "EXPIRED" && overallStatus !== "DENIED") {
+    const allApproved = stages.every((s) => approvals[s.role] === "APPROVED");
+    overallStatus = allApproved ? "APPROVED" : "IN_PROGRESS";
+  }
+
+  // Identify next pending approver if still in progress
+  let currentApprover = "";
+  let currentApproverEmail = "";
+  if (overallStatus === "IN_PROGRESS") {
+    const pendingStage = stages.find((s) => approvals[s.role] === "PENDING");
+    if (pendingStage) {
+      currentApprover = pendingStage.role;
+      currentApproverEmail = pendingStage.email || "";
+    }
+  }
+
+  return {
+    approvals,
+    overallStatus,
+    currentApprover,
+    currentApproverEmail,
+    denialComment,
+  };
+}
+
+
+/**
+ * Grabs a single submission's details + approval thread, 
+ * returning a structured object with stage statuses, overall status, etc.
+ */
+async function getSubmissionDetails(submissionId: string) {
+  try {
+    // 1) Fetch the submission
+    const submissionResponse = await fetch(
+      `${BASE_URL}/submission/${submissionId}?apikey=${API_KEY}`
+    );
+    if (!submissionResponse.ok) {
+      throw new Error("Failed to fetch submission details");
+    }
+    const submissionData = await submissionResponse.json();
+    if (!submissionData.content) {
+      throw new Error("No submission details found");
+    }
+
+    const submission = submissionData.content;
+    const answers = submission.answers || {};
+
+    // 2) Fetch the approval thread
+    const threadResponse = await fetch(
+      `${BASE_URL}/inbox/submission/${submissionId}/thread?apikey=${API_KEY}`
+    );
+    if (!threadResponse.ok) {
+      throw new Error("Failed to fetch approval thread");
+    }
+    const threadData = await threadResponse.json();
+
+    // Check if we need IT stage
+    const typeOfRequest = answers["12"]?.answer || "";
+    const inventorySelected = answers["36"]?.answer || []; // e.g. ["Software","Apparel"]
+    const needsIT =
+      typeOfRequest === "Replacement Request" ||
+      (Array.isArray(inventorySelected) && inventorySelected.includes("Software"));
+      // Build the stage array from form answers
+      // Adjust these field IDs if your form uses different IDs
+      function buildApproverStages() {
+        const stages: Stage[] = [
+          { role: "HR", email: answers["80"]?.answer },
+        ];
+        if (needsIT) {
+          stages.push({ role: "IT", email: answers["41"]?.answer });
+        }
+        stages.push({ role: "HOD", email: answers["38"]?.answer });
+        stages.push({ role: "Admin", email: answers["39"]?.answer });
+        return stages;
+      }
+      const approverStages = buildApproverStages();
+      
+      // 3) Extract only the relevant approval actions
+      const approvalActions = parseApprovals(threadData);
+      
+      
+      // 4) Determine final statuses
+      const {
+        approvals,
+      overallStatus,
+      currentApprover,
+      currentApproverEmail,
+      denialComment,
+    } = determineApprovalStatus(approvalActions, approverStages);
+    let replacementDetails: any = undefined;
+    let inventoryDetails: any[] = [];
+console.log(currentApprover)
+    if (typeOfRequest === "Replacement Request") {
+      const rawRepl = answers["105"]?.answer || "[]";
+      let replItems = [];
+      try {
+        replItems = JSON.parse(rawRepl);
+      } catch (err) {
+        console.error("Could not parse replacement items JSON:", err);
+      }
+      replacementDetails = {
+        reason: answers["31"]?.answer || "",
+        items: replItems,
+      };
+    } else {
+      
+      const categories = Array.isArray(inventorySelected)
+        ? inventorySelected
+        : [inventorySelected];
+
+      for (const cat of categories) {
+        if (cat === "Electronics") {
+          const raw = answers["24"]?.answer || "[]";
+          let rows = [];
+          try {
+            rows = JSON.parse(raw);
+          } catch (err) {
+            console.error("Electronics parse error:", err);
+          }
+          inventoryDetails.push({
+            categoryName: "Electronics",
+            rows,
+          });
+        } else if (cat === "Apparel") {
+          const raw = answers["23"]?.answer || "[]";
+          let rows = [];
+          try {
+            rows = JSON.parse(raw);
+          } catch (err) {
+            console.error("Apparel parse error:", err);
+          }
+          inventoryDetails.push({
+            categoryName: "Apparel",
+            rows,
+          });
+        } else if (cat === "Others") {
+          const raw = answers["47"]?.answer || "[]";
+          let rows = [];
+          try {
+            rows = JSON.parse(raw);
+          } catch (err) {
+            console.error("Others parse error:", err);
+          }
+          inventoryDetails.push({
+            categoryName: "Others",
+            rows,
+          });
+        } else if (cat === "Software") {
+          const raw = answers["22"]?.answer || "[]";
+          let rows = [];
+          try {
+            rows = JSON.parse(raw);
+          } catch (err) {
+            console.error("Software parse error:", err);
+          }
+          inventoryDetails.push({
+            categoryName: "Software",
+            rows,
+          });
+        } else if (cat === "IT Asset") {
+          const raw = answers["21"]?.answer || "[]";
+          let rows = [];
+          try {
+            rows = JSON.parse(raw);
+          } catch (err) {
+            console.error("IT Asset parse error:", err);
+          }
+          inventoryDetails.push({
+            categoryName: "IT Asset",
+            rows,
+          });
+        }
+        // add more categories here
+      }
+    }
+    // 5) Return structured data to the frontend
+    return {
+      id: submission.id,
+      name: answers["3"]?.answer || "N/A",
+      department: answers["17"]?.answer || "Unknown",
+      type: typeOfRequest,
+      inventoryType: Array.isArray(inventorySelected) ? inventorySelected : [inventorySelected],
+      status:
+        overallStatus === "APPROVED"
+          ? "APPROVED"
+          : overallStatus === "DENIED"
+          ? "DENIED"
+          : overallStatus === "EXPIRED"
+          ? "EXPIRED"
+          : "IN PROGRESS",
+      currentApprover,
+      currentApproverEmail,
+      denialComment,
+      approvals: {
+        hr: approvals["HR"],
+        it: approvals["IT"],
+        hod: approvals["HOD"],
+        admin: approvals["Admin"],
+      },
+        replacementDetails,
+      inventoryDetails,};
+  } catch (error) {
+    console.error("❌ Error fetching submission details:", error);
+    throw error;
+  }
+}
+
+/**
+ * Main Next.js API route
+ */
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
+
+  try {
+    const { requestId } = req.query;
+    if (!requestId) {
+      return res.status(400).json({ error: "Request ID is required" });
+    }
+
+    // 1) Fetch all submissions for the form
+    const response = await fetch(
+      `${BASE_URL}/form/${FORM_ID}/submissions?apikey=${API_KEY}&limit=500`
+    );
+    if (!response.ok) {
+      throw new Error("Failed to fetch submissions");
+    }
+    const data = await response.json();
+
+    if (!data?.content || !Array.isArray(data.content)) {
+      return res.status(500).json({ error: "No valid submission data received." });
+    }
+
+    // 2) Among all submissions, find the one matching requestId
+    //    (Adjust "40" if your IRF field is a different answer ID)
+    const submission = data.content.find(
+      (sub: any) => sub.answers?.["40"]?.answer === requestId
+    );
+    if (!submission) {
+      return res.status(404).json({ error: "Request ID not found" });
+    }
+
+    // 3) Get full details, parse approval data
+    const submissionDetails = await getSubmissionDetails(submission.id);
+
+    // 4) Return
+    return res.status(200).json(submissionDetails);
+  } catch (error: any) {
+    console.error("❌ Server Error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+}

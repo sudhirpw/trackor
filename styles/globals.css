@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+.approval-status-denied {
+    @apply bg-red-500 text-white !important;
+  }
+  
+  .approval-status-upcoming {
+    @apply bg-gray-200/50 text-gray-400 !important;
+  }
+  
+  .approval-status-denied-text {
+    @apply text-red-500 font-medium !important;
+  }
+  @keyframes heartBurst {
+    0% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: translateY(-30px) scale(1.2);
+    }
+    100% {
+      transform: translateY(-60px) scale(0.8);
+      opacity: 0;
+    }
+  }
+  
+  .animate-heartBurst {
+    animation: heartBurst 1s ease-out forwards;
+  }
