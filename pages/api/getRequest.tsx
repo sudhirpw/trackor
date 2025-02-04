@@ -1,6 +1,4 @@
 
-// import { Console } from "console";
-// import { CloudCog } from "lucide-react";
 import { NextApiRequest, NextApiResponse } from "next";
 
 //
@@ -236,6 +234,7 @@ async function getSubmissionDetails(submissionId: string) {
       throw new Error("Failed to fetch submission details");
     }
     const submissionData = await submissionResponse.json();
+    console.log(submissionData, "submissionData >>>>> ");
     if (!submissionData.content) {
       throw new Error("No submission details found");
     }
@@ -419,43 +418,46 @@ async function getSubmissionDetails(submissionId: string) {
 // 4) Your Next.js API route handler – now using fetchWithFallback to fetch the form’s submissions
 //
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
-  console.log(`${BASE_URL}/form/${FORM_ID}/submissions?apikey=${API_KEY}&limit=500` , "fetching url")
+
   try {
     const { requestId } = req.query;
     if (!requestId) {
       return res.status(400).json({ error: "Request ID is required" });
     }
 
-    const response = await fetchWithFallback(`${BASE_URL}/form/${FORM_ID}/submissions?apikey=${API_KEY}&limit=500`,
-      API_KEY,
-      // BKP_API_KEY
+    const response = await fetchWithFallback(
+      `${BASE_URL}/form/${FORM_ID}/submissions?apikey=${API_KEY}&limit=1000`,
+      API_KEY
     );
-    // console.log(response.json(), "response")
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Failed to fetch submissions:", response.status, errorText);
       throw new Error("Failed to fetch submissions");
     }
+
     const data = await response.json();
-    // console.log(data, "response")
     if (!data?.content || !Array.isArray(data.content)) {
       return res.status(500).json({ error: "No valid submission data received." });
     }
 
     // 2) Among all submissions, find the one matching requestId (answer ID=40)
+   console.log(data.content, "data.content >>>>> ");
     const submission = data.content.find(
       (sub: Submission) => sub.answers?.["59"]?.answer === requestId
     );
+    console.log(submission, "submission >>>>> ");
+
     if (!submission) {
-      return res.status(404).json({ error: "Request ID not found. Request might be old." });
+      return res.status(404).json({ error: "Request ID not found" });
     }
 
-    // 3) Get the detailed breakdown (stages, approvals, etc.)
+    // Process the submission details
     const submissionDetails = await getSubmissionDetails(submission.id);
 
-    // 4) Return final JSON
     return res.status(200).json(submissionDetails);
   } catch (error) {
     console.error("❌ Server Error:", error);
